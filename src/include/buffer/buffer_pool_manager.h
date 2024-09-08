@@ -26,187 +26,85 @@
 
 namespace bustub {
 
-/**
- * BufferPoolManager reads disk pages to and from its internal buffer pool.
- */
+// 缓冲池管理器类声明
 class BufferPoolManager {
  public:
-  /**
-   * @brief Creates a new BufferPoolManager.
-   * @param pool_size the size of the buffer pool
-   * @param disk_manager the disk manager
-   * @param replacer_k the LookBack constant k for the LRU-K replacer
-   * @param log_manager the log manager (for testing only: nullptr = disable logging). Please ignore this for P1.
-   */
+  // 构造函数，用于创建一个新的缓冲池管理器
   BufferPoolManager(size_t pool_size, DiskManager *disk_manager, size_t replacer_k = LRUK_REPLACER_K,
                     LogManager *log_manager = nullptr);
 
-  /**
-   * @brief Destroy an existing BufferPoolManager.
-   */
+  // 析构函数，用于销毁缓冲池管理器
   ~BufferPoolManager();
 
-  /** @brief Return the size (number of frames) of the buffer pool. */
+  // 返回缓冲池的大小（帧数）
   auto GetPoolSize() -> size_t { return pool_size_; }
 
-  /** @brief Return the pointer to all the pages in the buffer pool. */
+  // 返回所有缓冲池页面的指针
   auto GetPages() -> Page * { return pages_; }
 
-  /**
-   * TODO(P1): Add implementation
-   *
-   * @brief Create a new page in the buffer pool. Set page_id to the new page's id, or nullptr if all frames
-   * are currently in use and not evictable (in another word, pinned).
-   *
-   * You should pick the replacement frame from either the free list or the replacer (always find from the free list
-   * first), and then call the AllocatePage() method to get a new page id. If the replacement frame has a dirty page,
-   * you should write it back to the disk first. You also need to reset the memory and metadata for the new page.
-   *
-   * Remember to "Pin" the frame by calling replacer.SetEvictable(frame_id, false)
-   * so that the replacer wouldn't evict the frame before the buffer pool manager "Unpin"s it.
-   * Also, remember to record the access history of the frame in the replacer for the lru-k algorithm to work.
-   *
-   * @param[out] page_id id of created page
-   * @return nullptr if no new pages could be created, otherwise pointer to new page
-   */
+  // 创建一个新页面并返回其指针
   auto NewPage(page_id_t *page_id) -> Page *;
 
-  /**
-   * TODO(P2): Add implementation
-   *
-   * @brief PageGuard wrapper for NewPage
-   *
-   * Functionality should be the same as NewPage, except that
-   * instead of returning a pointer to a page, you return a
-   * BasicPageGuard structure.
-   *
-   * @param[out] page_id, the id of the new page
-   * @return BasicPageGuard holding a new page
-   */
+  // 用于创建新页面并返回一个 BasicPageGuard 结构
   auto NewPageGuarded(page_id_t *page_id) -> BasicPageGuard;
 
-  /**
-   * TODO(P1): Add implementation
-   *
-   * @brief Fetch the requested page from the buffer pool. Return nullptr if page_id needs to be fetched from the disk
-   * but all frames are currently in use and not evictable (in another word, pinned).
-   *
-   * First search for page_id in the buffer pool. If not found, pick a replacement frame from either the free list or
-   * the replacer (always find from the free list first), read the page from disk by scheduling a read DiskRequest with
-   * disk_scheduler_->Schedule(), and replace the old page in the frame. Similar to NewPage(), if the old page is dirty,
-   * you need to write it back to disk and update the metadata of the new page
-   *
-   * In addition, remember to disable eviction and record the access history of the frame like you did for NewPage().
-   *
-   * @param page_id id of page to be fetched
-   * @param access_type type of access to the page, only needed for leaderboard tests.
-   * @return nullptr if page_id cannot be fetched, otherwise pointer to the requested page
-   */
+  // 从缓冲池中获取页面或从磁盘中读取页面
   auto FetchPage(page_id_t page_id, AccessType access_type = AccessType::Unknown) -> Page *;
 
-  /**
-   * TODO(P2): Add implementation
-   *
-   * @brief PageGuard wrappers for FetchPage
-   *
-   * Functionality should be the same as FetchPage, except
-   * that, depending on the function called, a guard is returned.
-   * If FetchPageRead or FetchPageWrite is called, it is expected that
-   * the returned page already has a read or write latch held, respectively.
-   *
-   * @param page_id, the id of the page to fetch
-   * @return PageGuard holding the fetched page
-   */
+  // 用于获取页面的 PageGuard 包装器
   auto FetchPageBasic(page_id_t page_id) -> BasicPageGuard;
   auto FetchPageRead(page_id_t page_id) -> ReadPageGuard;
   auto FetchPageWrite(page_id_t page_id) -> WritePageGuard;
 
-  /**
-   * TODO(P1): Add implementation
-   *
-   * @brief Unpin the target page from the buffer pool. If page_id is not in the buffer pool or its pin count is already
-   * 0, return false.
-   *
-   * Decrement the pin count of a page. If the pin count reaches 0, the frame should be evictable by the replacer.
-   * Also, set the dirty flag on the page to indicate if the page was modified.
-   *
-   * @param page_id id of page to be unpinned
-   * @param is_dirty true if the page should be marked as dirty, false otherwise
-   * @param access_type type of access to the page, only needed for leaderboard tests.
-   * @return false if the page is not in the page table or its pin count is <= 0 before this call, true otherwise
-   */
+  // 从缓冲池中解除页面的引用
   auto UnpinPage(page_id_t page_id, bool is_dirty, AccessType access_type = AccessType::Unknown) -> bool;
 
-  /**
-   * TODO(P1): Add implementation
-   *
-   * @brief Flush the target page to disk.
-   *
-   * Use the DiskManager::WritePage() method to flush a page to disk, REGARDLESS of the dirty flag.
-   * Unset the dirty flag of the page after flushing.
-   *
-   * @param page_id id of page to be flushed, cannot be INVALID_PAGE_ID
-   * @return false if the page could not be found in the page table, true otherwise
-   */
+  // 将页面刷新到磁盘
   auto FlushPage(page_id_t page_id) -> bool;
 
-  /**
-   * TODO(P1): Add implementation
-   *
-   * @brief Flush all the pages in the buffer pool to disk.
-   */
+  // 刷新缓冲池中的所有页面到磁盘
   void FlushAllPages();
 
-  /**
-   * TODO(P1): Add implementation
-   *
-   * @brief Delete a page from the buffer pool. If page_id is not in the buffer pool, do nothing and return true. If the
-   * page is pinned and cannot be deleted, return false immediately.
-   *
-   * After deleting the page from the page table, stop tracking the frame in the replacer and add the frame
-   * back to the free list. Also, reset the page's memory and metadata. Finally, you should call DeallocatePage() to
-   * imitate freeing the page on the disk.
-   *
-   * @param page_id id of page to be deleted
-   * @return false if the page exists but could not be deleted, true if the page didn't exist or deletion succeeded
-   */
+  // 从缓冲池中删除页面
   auto DeletePage(page_id_t page_id) -> bool;
 
  private:
-  /** Number of pages in the buffer pool. */
+  // 缓冲池的大小
   const size_t pool_size_;
-  /** The next page id to be allocated  */
-  std::atomic<page_id_t> next_page_id_ = 0;
 
-  /** Array of buffer pool pages. */
+  // 下一个要分配的页面ID
+  std::atomic<page_id_t> next_page_id_;
+
+  // 缓冲池页面数组
   Page *pages_;
-  /** Pointer to the disk sheduler. */
-  std::unique_ptr<DiskScheduler> disk_scheduler_ __attribute__((__unused__));
-  /** Pointer to the log manager. Please ignore this for P1. */
-  LogManager *log_manager_ __attribute__((__unused__));
-  /** Page table for keeping track of buffer pool pages. */
+
+  // 指向磁盘调度器的指针
+  std::unique_ptr<DiskScheduler> disk_scheduler_;
+
+  // 指向日志管理器的指针（仅用于测试，P1阶段可以忽略）
+  // LogManager *log_manager_;
+
+  // 页面表，用于跟踪缓冲池页面
   std::unordered_map<page_id_t, frame_id_t> page_table_;
-  /** Replacer to find unpinned pages for replacement. */
+
+  // 替换器，用于查找可以替换的未固定页面
   std::unique_ptr<LRUKReplacer> replacer_;
-  /** List of free frames that don't have any pages on them. */
+
+  // 空闲帧的链表，表示没有分配页面的帧
   std::list<frame_id_t> free_list_;
-  /** This latch protects shared data structures. We recommend updating this comment to describe what it protects. */
+
+  // 保护共享数据结构的互斥锁
   std::mutex latch_;
 
-  /**
-   * @brief Allocate a page on disk. Caller should acquire the latch before calling this function.
-   * @return the id of the allocated page
-   */
+  // 分配新页面的私有辅助函数
   auto AllocatePage() -> page_id_t;
 
-  /**
-   * @brief Deallocate a page on disk. Caller should acquire the latch before calling this function.
-   * @param page_id id of the page to deallocate
-   */
+  // 释放页面的私有辅助函数（当前没有实际实现）
   void DeallocatePage(__attribute__((unused)) page_id_t page_id) {
-    // This is a no-nop right now without a more complex data structure to track deallocated pages
+    // 当前无需实际操作，因为没有复杂的数据结构来跟踪已释放的页面
   }
 
-  // TODO(student): You may add additional private members and helper functions
+  // TODO（学生）：您可以添加其他私有成员和辅助函数
 };
+
 }  // namespace bustub

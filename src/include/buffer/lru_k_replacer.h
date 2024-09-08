@@ -4,9 +4,9 @@
 //
 // lru_k_replacer.h
 //
-// Identification: src/include/buffer/lru_k_replacer.h
+// 文件标识：src/include/buffer/lru_k_replacer.h
 //
-// Copyright (c) 2015-2022, Carnegie Mellon University Database Group
+// 版权所有 (c) 2015-2022，卡内基梅隆大学数据库组
 //
 //===----------------------------------------------------------------------===//
 
@@ -23,139 +23,129 @@
 
 namespace bustub {
 
+// 访问类型枚举，用于记录访问类型
 enum class AccessType { Unknown = 0, Lookup, Scan, Index };
 
+// LRUKNode 类，表示LRU-K替换策略中的节点
 class LRUKNode {
- private:
-  /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */
-  // Remove maybe_unused if you start using them. Feel free to change the member variables as you want.
+public:
+  // 存储该页面最近K次访问的时间戳历史记录，最早的时间戳在列表前面
+  std::list<size_t> history_;
+  frame_id_t fid_; // 页面的帧ID
+  size_t k_;//这里应该解释为k值，不是K次访问记录的K，而是K次访问的最小K
+  bool is_evictable_{false}; // 标识该页面是否可以被替换
+public:
+  LRUKNode() {fid_=-1;k_=0;}
+  LRUKNode(size_t time,frame_id_t id,bool evictable){
+    history_.push_front(time);
+    fid_=id;
+    is_evictable_=evictable;
+  }
+  size_t GetBackKTimeStamp(){
+    if(history_.size()==0) {
+      return std::numeric_limits<size_t>::max();
+    }
+    return *history_.begin();
+  }
 
-  [[maybe_unused]] std::list<size_t> history_;
-  [[maybe_unused]] size_t k_;
-  [[maybe_unused]] frame_id_t fid_;
-  [[maybe_unused]] bool is_evictable_{false};
 };
 
 /**
- * LRUKReplacer implements the LRU-k replacement policy.
+ * LRUKReplacer 类实现了LRU-k替换策略。
  *
- * The LRU-k algorithm evicts a frame whose backward k-distance is maximum
- * of all frames. Backward k-distance is computed as the difference in time between
- * current timestamp and the timestamp of kth previous access.
+ * LRU-k算法会替换掉具有最大反向k距离的页面，
+ * 反向k距离是当前时间戳与第k次之前访问的时间戳之差。
  *
- * A frame with less than k historical references is given
- * +inf as its backward k-distance. When multiple frames have +inf backward k-distance,
- * classical LRU algorithm is used to choose victim.
+ * 具有少于k个历史引用的页面的反向k距离被视为+inf。当多个页面的反向k距离都是+inf时，
+ * 将使用经典的LRU算法选择替换的页面。
  */
 class LRUKReplacer {
  public:
   /**
+   * 构造函数，用于初始化LRUKReplacer。
    *
-   * TODO(P1): Add implementation
-   *
-   * @brief a new LRUKReplacer.
-   * @param num_frames the maximum number of frames the LRUReplacer will be required to store
+   * @param num_frames LRUKReplacer需要存储的最大帧数
+   * @param k K值
    */
   explicit LRUKReplacer(size_t num_frames, size_t k);
 
   DISALLOW_COPY_AND_MOVE(LRUKReplacer);
 
   /**
-   * TODO(P1): Add implementation
-   *
-   * @brief Destroys the LRUReplacer.
+   * 析构函数，用于销毁LRUKReplacer。
    */
   ~LRUKReplacer() = default;
 
   /**
-   * TODO(P1): Add implementation
-   *
-   * @brief Find the frame with largest backward k-distance and evict that frame. Only frames
-   * that are marked as 'evictable' are candidates for eviction.
-   *
-   * A frame with less than k historical references is given +inf as its backward k-distance.
-   * If multiple frames have inf backward k-distance, then evict frame with earliest timestamp
-   * based on LRU.
-   *
-   * Successful eviction of a frame should decrement the size of replacer and remove the frame's
-   * access history.
-   *
-   * @param[out] frame_id id of frame that is evicted.
-   * @return true if a frame is evicted successfully, false if no frames can be evicted.
+   * 找到具有最大反向k距离的页面并替换掉该页面。只有标记为“可替换”的页面才是替换候选页面。
+   * 具有少于k个历史引用的页面的反向k距离被视为+inf。如果多个页面的反向k距离都是+inf，
+   * 则基于LRU选择具有最早时间戳的页面。
+   * 成功替换页面后，应该减少替换器的大小并删除页面的访问历史记录。
+   * @param[out] frame_id 被替换的帧的ID
+   * @return 如果成功替换页面，则返回true，如果没有可替换的页面，则返回false。
    */
   auto Evict(frame_id_t *frame_id) -> bool;
 
   /**
-   * TODO(P1): Add implementation
+   * 记录给定帧ID在当前时间戳被访问的事件。
+   * 如果帧ID无效（即大于replacer_size_），则抛出异常。
    *
-   * @brief Record the event that the given frame id is accessed at current timestamp.
-   * Create a new entry for access history if frame id has not been seen before.
-   *
-   * If frame id is invalid (ie. larger than replacer_size_), throw an exception. You can
-   * also use BUSTUB_ASSERT to abort the process if frame id is invalid.
-   *
-   * @param frame_id id of frame that received a new access.
-   * @param access_type type of access that was received. This parameter is only needed for
-   * leaderboard tests.
+   * @param frame_id 收到新访问的帧的ID
+   * @param access_type 访问的类型，仅在领导板测试中需要此参数。
    */
   void RecordAccess(frame_id_t frame_id, AccessType access_type = AccessType::Unknown);
 
   /**
-   * TODO(P1): Add implementation
+   * 切换帧是否可替换的状态。此函数还控制替换器的大小。
    *
-   * @brief Toggle whether a frame is evictable or non-evictable. This function also
-   * controls replacer's size. Note that size is equal to number of evictable entries.
+   * 如果先前可替换的帧将其设置为不可替换，则大小应减少。
+   * 如果先前不可替换的帧将其设置为可替换，则大小应增加。
    *
-   * If a frame was previously evictable and is to be set to non-evictable, then size should
-   * decrement. If a frame was previously non-evictable and is to be set to evictable,
-   * then size should increment.
+   * 如果帧ID无效，请抛出异常或中止进程。
    *
-   * If frame id is invalid, throw an exception or abort the process.
+   * 对于其他情况，此函数应在不修改任何内容的情况下终止。
    *
-   * For other scenarios, this function should terminate without modifying anything.
-   *
-   * @param frame_id id of frame whose 'evictable' status will be modified
-   * @param set_evictable whether the given frame is evictable or not
+   * @param frame_id 要修改“可替换”状态的帧的ID
+   * @param set_evictable 是否允许替换给定的帧
    */
   void SetEvictable(frame_id_t frame_id, bool set_evictable);
 
   /**
-   * TODO(P1): Add implementation
+   * 从替换器中移除一个可替换的帧，以及其访问历史记录。
+   * 如果移除成功，此函数还应减小替换器的大小。
    *
-   * @brief Remove an evictable frame from replacer, along with its access history.
-   * This function should also decrement replacer's size if removal is successful.
-   *
-   * Note that this is different from evicting a frame, which always remove the frame
-   * with largest backward k-distance. This function removes specified frame id,
-   * no matter what its backward k-distance is.
-   *
-   * If Remove is called on a non-evictable frame, throw an exception or abort the
-   * process.
-   *
-   * If specified frame is not found, directly return from this function.
-   *
-   * @param frame_id id of frame to be removed
+   * 请注意，这与替换帧是不同的，替换总是删除具有最大反向k距离的帧。
+   * 此函数会删除指定的帧ID，
+   * 无论其反向k距离如何。
+   * 如果Remove被调用于不可替换的帧上，请抛出异常或中止进程。
+   * 如果未找到指定的帧，则直接从此函数返回。
+   * @param frame_id 要移除的帧的ID
    */
   void Remove(frame_id_t frame_id);
 
   /**
-   * TODO(P1): Add implementation
-   *
-   * @brief Return replacer's size, which tracks the number of evictable frames.
-   *
+   * 返回替换器的大小，该大小跟踪可替换的帧数。
    * @return size_t
    */
   auto Size() -> size_t;
 
  private:
-  // TODO(student): implement me! You can replace these member variables as you like.
-  // Remove maybe_unused if you start using them.
-  [[maybe_unused]] std::unordered_map<frame_id_t, LRUKNode> node_store_;
-  [[maybe_unused]] size_t current_timestamp_{0};
-  [[maybe_unused]] size_t curr_size_{0};
-  [[maybe_unused]] size_t replacer_size_;
-  [[maybe_unused]] size_t k_;
-  [[maybe_unused]] std::mutex latch_;
+  // TODO(student): 根据需要实现这些成员变量，如果开始使用它们，请删除maybe_unused。
+  // 帧id->node的存储映射，也即是页表
+  std::unordered_map<frame_id_t, LRUKNode> node_store_;
+  // 如果lru node少于k 中不空，优先踢出
+  std::list<LRUKNode> less_than_k;
+  // 
+  std::list<LRUKNode> more_than_k;
+  // 当前的时间戳，需要手动，原因是系统的时钟在多进程可能有错
+  size_t current_timestamp_{0};
+  // 当前存放的可驱逐页面数量
+  size_t curr_size_{0};
+  // 整个主存大小（用于判断页是否非法越界）
+  size_t replacer_size_={0};
+  size_t k_;
+
+  std::mutex latch_;
 };
 
 }  // namespace bustub
